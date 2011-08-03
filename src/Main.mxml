@@ -10,7 +10,7 @@
 
 	<fx:Script>
 		<![CDATA[
-						
+			
 			var netConnection:NetConnection;
 
 			var localNetStream:NetStream;
@@ -32,7 +32,10 @@
 			
 			// Responder (for communicating messages with FMS) specifically, which stream am I?
 			var selectStreamResponder:Responder;
-									
+			
+			var sharedObject:SharedObject;
+
+			
 			var flashVars:Object;
 			var divId:String = "flashContent"; // Default, passed in via flashvars
 			
@@ -130,6 +133,16 @@
 						selectStreamResponder = new Responder(selectStreamResponse);
 						netConnection.call("streamSelect",selectStreamResponder);
 						
+						// Set up the shared object for sending recieving mouse positions
+						// We'll call it SimpleSO, pass in the app url and not make it persistent
+						sharedObject = SharedObject.getRemote("SimpleSO",netConnection.uri,false);
+						
+						// Add a listener for when shared object is changed
+						sharedObject.addEventListener(SyncEvent.SYNC,syncEventCallBack); 
+						
+						// Connect the shared object to our netConnection
+						sharedObject.connect(netConnection);						
+						
 						break;
 					
 					default:
@@ -137,6 +150,32 @@
 						debug(event.info.code);
 						
 						break;
+				}
+			}
+			
+			// This is how we'll get other people's mouse positions
+			function syncEventCallBack(syncEvent:SyncEvent):void
+			{
+				//  Array of changes: syncEvent.changeList[]		
+				for (var i:int = 0; i < syncEvent.changeList.length; i++)
+				{
+					trace(syncEvent.changeList[i].code);
+					
+					switch(syncEvent.changeList[i].code)
+					{
+						case "clear":
+							break;
+						case "success":
+							// Ours was sent
+							
+							break;
+						case "change":
+							// get the new data
+							var newData:String = sharedObject.data.theData;
+							trace("recieved " + newData);
+							// Update other mouse display
+							break;
+					}
 				}
 			}
 			
@@ -229,7 +268,7 @@
 				debug("Attached Camera to Video Object");
 				
 				// NOT DOING THIS RIGHT NOW, BANDWIDTH ISSUES
-				//localNetStream.publish(localStreamName);
+				localNetStream.publish(localStreamName);
 				debug("Publish Local Stream");
 				
 				frameTimer.start();				
@@ -263,9 +302,11 @@
 			            break;
 				}
 				
-				if (ExternalInterface.available) { 
+				if (ExternalInterface.available) {
+					ExternalInterface.call("flashIsReady",null);
+					
 					// Make Transparent Background
-					ExternalInterface.call("makeContentTransparent",null);
+					//ExternalInterface.call("makeContentTransparent",null);
 					
 					// Send our div to the back
 					//ExternalInterface.call("sendFlashBack",null);
@@ -278,9 +319,20 @@
 			public function jsMouseMoved(x:String,y:String):void {
 				debug("jsMouseMoved: " + x + " " + y);
 				
+				/*
 				localVideoDisplay.x = Number(x);
 				localVideoDisplay.y = Number(y);
+				*/
+				
+				if (bmp != null) {
+					bmp.x = Number(x);
+					bmp.y = Number(y);
+				}
+				
+				sharedObject.setProperty("theData",x + "," + y);
+
 			}
+			
 			/*
 			public function jsMouseMoved():void {
 				debug("jsMouseMoved");
