@@ -43,47 +43,39 @@
         <!${useBrowserHistory} END Browser History required section -->  
 		    
         <script type="text/javascript" src="swfobject.js"></script>
-        <script type="text/javascript">
-            <!-- For version detection, set to min. required Flash Player version, or 0 (or 0.0.0), for no version detection. --> 
-            var swfVersionStr = "${version_major}.${version_minor}.${version_revision}";
-            <!-- To use express install, set to playerProductInstall.swf, otherwise the empty string. -->
-            var xiSwfUrlStr = "${expressInstallSwf}";
-            var flashvars = {};
-            var params = {};
-            params.quality = "high";
-            params.bgcolor = "${bgcolor}";
-            params.allowscriptaccess = "always";
-            params.allowfullscreen = "true";
-            params.wmode = "transparent";
-            flashvars.divId = "outterFlashContent";
-            var attributes = {};
-            attributes.id = "${application}";
-            attributes.name = "${application}";
-            attributes.align = "middle";
-			attributes.id = "flashContent";
-
-            swfobject.embedSWF(
-                "${swf}.swf", "flashContent", 
-                "${width}", "${height}", 
-                swfVersionStr, xiSwfUrlStr, 
-                flashvars, params, attributes);
-			<!-- JavaScript enabled so display the flashContent div in case it is not replaced with a swf object. -->
-			swfobject.createCSS("#flashContent", "display:block;text-align:left;");
-        </script>
+        
         
         <script type="text/javascript" src="jquery-1.6.2.min.js"></script>
                 
         <script type="text/javascript">
-        	var flashContent;
+
+	        var flashContent;
+    		var flashLoaded = false;
+
+        	function flashLoadedCallback(e) {
+        		alert("Flash ID: " + e.id);
+        		flashContent = document.getElementById(e.id);
+        	}
+    
+        	function flashIsReady() {
+        		alert("Flash Is Ready");
+        		flashLoaded = true;
+        		
+        		makeContentTransparent();
+        	}
         
+        /*
         	function testit() {
-				flashContent = swfobject.getObjectById("flashContent"); //document.getElementById('flashContent');
+        	
+				var flashContent = swfobject.getObjectById("flashContent"); 
+				var flashContent = document.getElementById('flashContent');
 				alert(flashContent);
         		for(var propertyName in flashContent) {
-        			//alert(propertyName);
+        			alert(propertyName);
 				}
         	}
-        	
+        */
+        
         	function submitUrl() {
         		loadUrl(document.getElementById("urlText").value);
         	}
@@ -98,15 +90,26 @@
 		    	//alert(theevent);
 		    }
 		    
+		    var dontRepeat = false;
+		    
 		    $(document).ready(function() { 
 		    	loadUrl("http://www.google.com"); 
-		    	//alert(document.getElementById('flashContent'));
 		    	
 				$(document).mousemove(function(e){
-					
-					//document.getElementById('flashContent').jsMouseMoved(e.pageX,e.pageY);
-					if (document.flashContent != null) {
-						document.flashContent.jsMouseMoved(e.pageX,e.pageY);
+					if (flashLoaded != false) {
+						//document.getElementById('flashContent').jsMouseMoved(e.pageX,e.pageY);
+						if (document.getElementById('flashContent') != null) {
+							if (!dontRepeat) {
+								alert("have flashContent");
+								dontRepeat = true;
+							}
+							document.getElementById('flashContent').jsMouseMoved(e.pageX,e.pageY);
+						} else {
+							if (!dontRepeat) {
+								alert("do NOT have flashContent");
+								dontRepeat = true;
+							}
+						}
 					}
 				}); 
 		    });
@@ -139,7 +142,34 @@
 		    }
 		    
         </script>
+	
+		<script type="text/javascript">
+            <!-- For version detection, set to min. required Flash Player version, or 0 (or 0.0.0), for no version detection. --> 
+            var swfVersionStr = "${version_major}.${version_minor}.${version_revision}";
+            <!-- To use express install, set to playerProductInstall.swf, otherwise the empty string. -->
+            var xiSwfUrlStr = "${expressInstallSwf}";
+            var flashvars = {};
+            var params = {};
+            params.quality = "high";
+            params.bgcolor = "${bgcolor}";
+            params.allowscriptaccess = "always";
+            params.allowfullscreen = "true";
+            params.wmode = "transparent";
+            flashvars.divId = "outterFlashContent";
+            var attributes = {};
+            attributes.id = "${application}";
+            attributes.name = "${application}";
+            attributes.align = "middle";
+			attributes.id = "flashContent";
 
+            swfobject.embedSWF(
+                "${swf}.swf", "flashContent", 
+                "${width}", "${height}", 
+                swfVersionStr, xiSwfUrlStr, 
+                flashvars, params, attributes, flashLoadedCallback);
+			<!-- JavaScript enabled so display the flashContent div in case it is not replaced with a swf object. -->
+			swfobject.createCSS("#flashContent", "display:block;text-align:left;");
+        </script>
     </head>
     <body>
     	<div id="pageContent" style="position: absolute; top: 0px; left: 0px; width: 100%; height: 100%; z-index: 1;">
