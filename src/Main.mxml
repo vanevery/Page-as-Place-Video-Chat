@@ -1,0 +1,408 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Application xmlns:fx="http://ns.adobe.com/mxml/2009" 
+			   xmlns:s="library://ns.adobe.com/flex/spark" 
+			   xmlns:mx="library://ns.adobe.com/flex/mx"
+			   applicationComplete="init()" backgroundAlpha="0.0">
+	<fx:Style source="Main.css"/>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+
+	<fx:Script>
+		<![CDATA[
+						
+			var netConnection:NetConnection;
+
+			var localNetStream:NetStream;
+			
+			var camera:Camera;
+			var microphone:Microphone;
+			var video:Video;
+			
+			var localStreamName = "stream0";
+			var remoteStreamName = "stream1";
+			
+			var remoteNetStream:NetStream;
+			var remoteVideo:Video;
+			
+			var videoWidth:Number = 160;
+			var videoHeight:Number = 120;
+			
+			var localNetStreamInfo:NetStreamInfo;
+			
+			// Responder (for communicating messages with FMS) specifically, which stream am I?
+			var selectStreamResponder:Responder;
+									
+			var flashVars:Object;
+			var divId:String = "flashContent"; // Default, passed in via flashvars
+			
+			var bmp:Bitmap;
+			var bmpd:BitmapData;
+			var pbmpd:BitmapData;  // Previous Frame
+			var frameTimer:Timer;
+
+			var rbmp:Bitmap;
+			var rbmpd:BitmapData;
+			var rpbmpd:BitmapData;
+			var rframeTimer:Timer;
+			
+			function debug(theText:String) {
+				trace(theText);
+				textoutput.text += theText + "\n";
+				textoutput.verticalScrollPosition = textoutput.maxVerticalScrollPosition;
+			}
+			
+			// Runs at launch
+			function init()
+			{
+				debug("init");
+								
+				stage.addEventListener(Event.RESIZE, resizeHandler); 				
+				stage.addEventListener(MouseEvent.MOUSE_MOVE, mouseMoveHandler);
+
+				if (ExternalInterface.available) { 
+					ExternalInterface.addCallback("jsMouseMoved",jsMouseMoved);
+					debug("added jsMouseMoved");
+				}
+				
+				
+				flashVars = this.parameters;
+				if (flashVars != null) {
+					if (flashVars.divId != null) {
+						divId = flashVars.divId;
+						debug("divId: " + divId);
+					} else {
+						debug("ERROR, no divId, using: " + divId);
+					}
+				}
+				
+				netConnection = new NetConnection();
+				netConnection.client = new Object();
+				netConnection.client.onBWDone = onBWDone;
+				netConnection.client.onMetaData = onMetaData;
+				netConnection.addEventListener(NetStatusEvent.NET_STATUS, netStatusHandler);
+				
+				// Connect to server
+				netConnection.connect("rtmp://itp-flash.es.its.nyu.edu/sve204/mictest");	
+				
+				//  The following is for video manipulation
+				
+				// Create the bitmapdata objects
+				// Local
+				bmpd = new BitmapData(videoWidth,videoHeight);
+				pbmpd = new BitmapData(videoWidth,videoHeight);
+
+				// Remote
+				rbmpd = new BitmapData(videoWidth,videoHeight);
+				rpbmpd = new BitmapData(videoWidth,videoHeight);
+				
+				// Create the bitmap image
+				bmp = new Bitmap(bmpd);
+				rbmp = new Bitmap(rbmpd);
+				
+				// Add it to the stage
+				bmp.x = 0;
+				bmp.y = 0;
+				stage.addChild(bmp);
+				
+				rbmp.x = videoWidth + 10;
+				rbmp.y = 0;
+				stage.addChild(rbmp);
+				
+				// Create timer
+				frameTimer = new Timer(100,0);
+				frameTimer.addEventListener(TimerEvent.TIMER, grabFrame);
+
+				// Create timer
+				rframeTimer = new Timer(100,0);
+				rframeTimer.addEventListener(TimerEvent.TIMER, rgrabFrame);
+			}
+			
+			function netStatusHandler(event:NetStatusEvent):void 
+			{
+				switch (event.info.code) 
+				{
+					case "NetConnection.Connect.Success":
+						
+						debug("Connected");
+						debug("Asking for stream name");
+
+						selectStreamResponder = new Responder(selectStreamResponse);
+						netConnection.call("streamSelect",selectStreamResponder);
+						
+						break;
+					
+					default:
+						
+						debug(event.info.code);
+						
+						break;
+				}
+			}
+			
+			function selectStreamResponse(streamNames:String)
+			{
+				debug("Got stream names");
+								
+				var theStreamNames = streamNames.split(":");
+				if (theStreamNames.length > 0)
+				{ 	
+					debug("I am : " + theStreamNames[0]);
+					localStreamName = theStreamNames[0];
+					startLocalStream();
+					
+					if (theStreamNames.length > 1)
+					{
+						remoteStreamName = theStreamNames[1];
+						startRemoteStream();
+					}
+				}
+			}
+			
+			function onBWDone():void{
+				debug("onBWDone");
+			}
+			
+			function onMetaData():void{
+				debug("onMetaData");
+			}
+						
+			function startLocalStream():void
+			{
+				debug("Starting Local Stream");
+				
+				// Create local netstream
+				localNetStream = new NetStream(netConnection);
+				
+				// Get a local camera
+				camera = Camera.getCamera();
+				
+				// Ask to be notified when user makes a choice regarding access
+				camera.addEventListener(StatusEvent.STATUS, cameraStatus);
+				
+				// Set the mode of the camera component
+				// width, height, fps
+				camera.setMode(videoWidth,videoHeight,15);
+				
+				// Get the microphone component
+				microphone = Microphone.getMicrophone();
+				
+				//microphone.gain = Number(10);
+				debug("Gain: " + microphone.gain);
+									
+				//microphone.rate = Number();
+				debug("Rate: " + microphone.rate);
+				
+				microphone.setUseEchoSuppression(true);
+				debug("Echo: " + microphone.useEchoSuppression);	
+									
+				//microphone.setSilenceLevel();
+				debug("Silence: " + microphone.silenceLevel);
+				
+				//microphone.useEchoSuppression
+				//microphone.setLoopBack(true);
+				//debug("Loopback: true");
+				
+				microphone.codec = "Speex";	
+				debug("Speex");
+											
+				//microphone.encodeQuality = 
+				debug("Quality: " + microphone.encodeQuality);
+											
+				// Attach the camera to the netstream object
+				localNetStream.attachCamera(camera);
+				debug("Attached Camera");
+				
+				// Attach the mic to the netstream object
+				localNetStream.attachAudio(microphone);
+				debug("Attached Microphone");
+									
+				// Create a video object
+				video = new Video(videoWidth, videoHeight);
+				debug("Created Video Object");	
+				
+				localVideoDisplay.addChild(video);
+				debug("Added Video Object");
+					
+				// Attach the camera object to the video object
+				video.attachCamera(camera);
+				debug("Attached Camera to Video Object");
+				
+				// NOT DOING THIS RIGHT NOW, BANDWIDTH ISSUES
+				//localNetStream.publish(localStreamName);
+				debug("Publish Local Stream");
+				
+				frameTimer.start();				
+			}
+
+			function startRemoteStream():void
+			{
+				debug("Start Remote Stream");
+				
+				remoteNetStream = new NetStream(netConnection);
+				remoteNetStream.bufferTime = 0;
+				remoteVideo = new Video(videoWidth, videoHeight);
+				remoteVideo.attachNetStream(remoteNetStream);
+				
+				remoteNetStream.play(remoteStreamName);				
+				remoteVideoDisplay.addChild(remoteVideo);
+				
+				rframeTimer.start();				
+
+				//resizeVideo();
+			}
+			
+			private function cameraStatus(evt:StatusEvent):void {
+				// Move down the z-index after permissions are given
+				switch (evt.code) {
+		        	case "Camera.Muted":
+			        	debug("User denied access to camera.");
+			            break;
+					case "Camera.Unmuted":
+			        	debug("User allowed access to camera.");
+			            break;
+				}
+				
+				if (ExternalInterface.available) { 
+					// Make Transparent Background
+					ExternalInterface.call("makeContentTransparent",null);
+					
+					// Send our div to the back
+					//ExternalInterface.call("sendFlashBack",null);
+
+					//ExternalInterface.call("document.getElementById('" + divId + "').style.visibility = \"hidden\";","");
+				}
+            }
+			
+			
+			public function jsMouseMoved(x:String,y:String):void {
+				debug("jsMouseMoved: " + x + " " + y);
+				
+				localVideoDisplay.x = Number(x);
+				localVideoDisplay.y = Number(y);
+			}
+			/*
+			public function jsMouseMoved():void {
+				debug("jsMouseMoved");
+			}
+			*/
+			public function mouseMoveHandler(e:Event):void {
+				debug("mouse moved");
+			}
+						
+			public function resizeHandler(e:Event):void {
+				//resizeVideo();
+			}
+			
+			private function resizeVideo():void {
+				// Resize, maintain aspect ratio
+				debug("Doing Resize: " + stage.stageWidth + " x " + stage.stageHeight);
+				
+				if (stage.stageWidth/remoteVideo.width < stage.stageHeight/remoteVideo.height) {
+					debug("Width ratio is limiting " + (stage.stageWidth/remoteVideo.width) + " " + (stage.stageHeight/remoteVideo.height)); 
+					remoteVideo.width = stage.stageWidth;
+					remoteVideo.height = stage.stageWidth/videoWidth * videoHeight; 
+				} else {
+					debug("Height ratio is limiting " + (stage.stageWidth/remoteVideo.width) + " " + (stage.stageHeight/remoteVideo.height)); 
+					remoteVideo.width = stage.stageHeight/videoHeight * videoWidth;
+					remoteVideo.height = stage.stageHeight;  
+				}
+				
+				remoteVideoDisplay.width = remoteVideo.width;
+				remoteVideoDisplay.height = remoteVideo.height;
+				remoteVideoDisplay.x = (stage.stageWidth - remoteVideoDisplay.width)/2;
+				remoteVideoDisplay.y = (stage.stageHeight - remoteVideoDisplay.height)/2;
+				
+				localVideoDisplay.x = (stage.stageWidth - localVideoDisplay.width - 20);
+				localVideoDisplay.y = (stage.stageHeight - localVideoDisplay.height - 20);	
+			}	
+			
+			private function grabFrame(e:TimerEvent):void
+			{
+				//trace("timer");
+				
+				// Save the frame to the bitmapdata object
+				bmpd.draw(video);
+				
+				if (pbmpd == null) {
+					pbmpd.draw(video);
+				}
+
+				for (var row:int=0; row<bmpd.height; row++) { //for each row
+					for(var col:int=0; col<bmpd.width; col++) { //for each column
+						//get the color of this pixels
+						var pix:uint = bmpd.getPixel(col,row);
+						var ppix:uint = pbmpd.getPixel(col,row);
+						
+						var red:int = pix >> 16;
+						var pred:int = ppix >> 16;
+						
+						var green:int = pix >> 8 & 0xff;
+						var pgreen:int = ppix >> 8 & 0xff;
+						
+						var blue:int = pix & 0xff;
+						var pblue:int = ppix & 0xff;
+												
+						if (Math.abs(red - pred) + Math.abs(green - pgreen) + Math.abs(blue - pblue) > 50)
+						{
+							bmpd.setPixel(col,row,0);
+						}
+						else 
+						{
+							bmpd.setPixel(col,row,0xFFFFFFFF);
+						}
+					}
+				}
+				
+				pbmpd.draw(video);
+			}
+			
+			private function rgrabFrame(e:TimerEvent):void
+			{
+				//trace("timer");
+				
+				// Save the frame to the bitmapdata object
+				rbmpd.draw(remoteVideo);
+				
+				if (rpbmpd == null) {
+					rpbmpd.draw(remoteVideo);
+				}
+				
+				for (var row:int=0; row<bmpd.height; row++) { //for each row
+					for(var col:int=0; col<bmpd.width; col++) { //for each column
+						//get the color of this pixels
+						var pix:uint = rbmpd.getPixel(col,row);
+						var ppix:uint = rpbmpd.getPixel(col,row);
+						
+						var red:int = pix >> 16;
+						var pred:int = ppix >> 16;
+						
+						var green:int = pix >> 8 & 0xff;
+						var pgreen:int = ppix >> 8 & 0xff;
+						
+						var blue:int = pix & 0xff;
+						var pblue:int = ppix & 0xff;
+						
+						if (Math.abs(red - pred) + Math.abs(green - pgreen) + Math.abs(blue - pblue) > 50)
+						{
+							rbmpd.setPixel(col,row,0);
+						}
+						else 
+						{
+							rbmpd.setPixel(col,row,0xFFFFFFFF);
+						}
+					}
+				}
+				
+				rpbmpd.draw(remoteVideo);
+			}			
+			
+		]]>
+	</fx:Script>
+	
+	<mx:VideoDisplay id="remoteVideoDisplay" x="180" y="35" width="160" height="120" contentBackgroundAlpha="1.0" visible="false" />
+	<mx:VideoDisplay id="localVideoDisplay" x="10" y="36" width="160" height="120" contentBackgroundAlpha="1.0" visible="false" />
+	
+	<mx:TextArea x="693" y="35" width="263" height="500" id="textoutput" text="nothing yet" visible="false" />
+
+</s:Application>
