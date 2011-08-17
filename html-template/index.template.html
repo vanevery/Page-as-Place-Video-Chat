@@ -44,75 +44,76 @@
 		    
         <script type="text/javascript" src="swfobject.js"></script>
         
-        
         <script type="text/javascript" src="jquery-1.6.2.min.js"></script>
                 
         <script type="text/javascript">
+        	var testing = true;
+        
 
 	        var flashContent;
     		var flashLoaded = false;
 
         	function flashLoadedCallback(e) {
-        		alert("Flash ID: " + e.id);
+        		if (testing) {
+	        		alert("Flash ID: " + e.id);
+	        	}
         		flashContent = document.getElementById(e.id);
         	}
     
         	function flashIsReady() {
-        		alert("Flash Is Ready");
+        		if (testing) {
+	        		alert("Flash Is Ready");
+	        	}
         		flashLoaded = true;
         		
         		makeContentTransparent();
         	}
-        
-        /*
-        	function testit() {
-        	
-				var flashContent = swfobject.getObjectById("flashContent"); 
-				var flashContent = document.getElementById('flashContent');
-				alert(flashContent);
-        		for(var propertyName in flashContent) {
-        			alert(propertyName);
-				}
-        	}
-        */
-        
+                
         	function submitUrl() {
         		loadUrl(document.getElementById("urlText").value);
         	}
         
         	function loadUrl(theUrl) {
         		var theContentDiv = document.getElementById("pageContent");
-        		//alert(theContentDiv.innerHTML);
-		        theContentDiv.innerHTML ='<iframe  id="frameer" onLoad ="urlChanged(event);" src=' + theUrl +   ' scrolling=\"yes\" marginwidth=\"0\" marginheight=\"0\" frameborder=\"0\" vspace=\"0\" hspace=\"0\" height=\"100%\" width=\"100%\"  ></iframe>';
+    	        theContentDiv.innerHTML ='<iframe  id="frameer" onLoad ="urlChanged(event);" src=' + theUrl +   ' scrolling=\"yes\" marginwidth=\"0\" marginheight=\"0\" frameborder=\"0\" vspace=\"0\" hspace=\"0\" height=\"100%\" width=\"100%\"  ></iframe>';
 		    }
 		    
 		    function urlChanged(theevent) {
-		    	//alert(theevent);
+		    	if (testing) {
+			    	alert(theevent);
+			    }
 		    }
-		    
-		    var dontRepeat = false;
 		    
 		    $(document).ready(function() { 
 		    	loadUrl("http://www.google.com"); 
+		    	document.onmousemove = mouseMoved;        
+		    });
+		    
+		    var haveFlashAlert = false;
+		    function mouseMoved() {
+		    	if (testing) {	
+			    	//document.getElementById("log").innerHTML += " x: " + event.clientX + " y: " + event.clientY;
+			    }
 		    	
-				$(document).mousemove(function(e){
-					if (flashLoaded != false) {
-						//document.getElementById('flashContent').jsMouseMoved(e.pageX,e.pageY);
-						if (document.getElementById('flashContent') != null) {
-							if (!dontRepeat) {
+				if (flashLoaded != false) {
+					if (document.getElementById('flashContent') != null) {
+						if (!haveFlashAlert) {
+							if (testing) {
 								alert("have flashContent");
-								dontRepeat = true;
 							}
-							document.getElementById('flashContent').jsMouseMoved(e.pageX,e.pageY);
-						} else {
-							if (!dontRepeat) {
+							haveFlashAlert = true;
+						}
+						document.getElementById('flashContent').jsMouseMoved(event.clientX,event.clientY);
+					} else {
+						if (!haveFlashAlert) {
+							if (testing) {
 								alert("do NOT have flashContent");
-								dontRepeat = true;
 							}
+							haveFlashAlert = true;
 						}
 					}
-				}); 
-		    });
+				}		    	
+		    }
 		    		    
 		    function sendFlashBack() {
 		    	var theFlashDiv = document.getElementById("outterFlashContent");
@@ -176,11 +177,16 @@
     		<!-- This will be the page content we are browsing -->
     	</div>
     
-    	<div id="controlBar" style="position: absolute; top: 0px; left: 0px; width: 100%; height: 100px; z-index: 5;">
-    		<input type="button" name="button" value="test it" onclick="testit();">
+    	<div id="controlBar" style="position: absolute; top: 0px; left: 0px; width: 100%; height: 100%; z-index: 5;">
     		<input type="text" id="urlText" name="urlText" value="http://www.google.com">
-    		<input type="button" name="submit" value="submit" onclick="loadUrl();">
+    		<input type="button" name="submit" value="submit" onclick="submitUrl();">
+
+			<div id="log">
+			
+			</div>
+    		
     	</div>
+    	
     
         <!-- SWFObject's dynamic embed method replaces this alternative HTML content with Flash content when enough 
 			 JavaScript and Flash plug-in support is available. The div is initially hidden so that it doesn't show
@@ -203,5 +209,6 @@
 				This page requires <a href='http://www.adobe.com/go/getflashplayer'>Flash</a> and JavaScript to be enabled.
 			</noscript>	
 		</div>
+		
    </body>
 </html>
