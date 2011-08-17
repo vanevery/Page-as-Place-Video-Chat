@@ -6,6 +6,7 @@
 	<fx:Style source="Main.css"/>
 	<fx:Declarations>
 		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	
 	</fx:Declarations>
 
 	<fx:Script>
@@ -34,7 +35,6 @@
 			var selectStreamResponder:Responder;
 			
 			var sharedObject:SharedObject;
-
 			
 			var flashVars:Object;
 			var divId:String = "flashContent"; // Default, passed in via flashvars
@@ -49,14 +49,14 @@
 			var rpbmpd:BitmapData;
 			var rframeTimer:Timer;
 			
-			function debug(theText:String) {
+			function debug(theText:String):void {
 				trace(theText);
 				textoutput.text += theText + "\n";
 				textoutput.verticalScrollPosition = textoutput.maxVerticalScrollPosition;
 			}
 			
 			// Runs at launch
-			function init()
+			function init():void
 			{
 				debug("init");
 								
@@ -138,7 +138,10 @@
 						sharedObject = SharedObject.getRemote("SimpleSO",netConnection.uri,false);
 						
 						// Add a listener for when shared object is changed
-						sharedObject.addEventListener(SyncEvent.SYNC,syncEventCallBack); 
+						//sharedObject.addEventListener(SyncEvent.SYNC,syncEventCallBack); 
+						
+						// Call methods on this
+						sharedObject.client = this;
 						
 						// Connect the shared object to our netConnection
 						sharedObject.connect(netConnection);						
@@ -154,6 +157,7 @@
 			}
 			
 			// This is how we'll get other people's mouse positions
+			/*
 			function syncEventCallBack(syncEvent:SyncEvent):void
 			{
 				//  Array of changes: syncEvent.changeList[]		
@@ -178,8 +182,25 @@
 					}
 				}
 			}
+			*/
 			
-			function selectStreamResponse(streamNames:String)
+			public function mousePostionChanged(streamName:String, x:Number, y:Number):void {
+				debug(streamName + ":" + x + "," + y);
+				
+				if (streamName == localStreamName) {
+					bmp.x = x;
+					bmp.y = y;
+				} else if (streamName == remoteStreamName) {
+					rbmp.x = x;
+					rbmp.y = y;					
+				}
+			}
+			
+			function sendMousePosition(streamName:String, x:Number, y:Number):void {
+				sharedObject.send("mousePostionChanged",streamName,x,y);
+			}
+			
+			function selectStreamResponse(streamNames:String):void
 			{
 				debug("Got stream names");
 								
@@ -324,13 +345,15 @@
 				localVideoDisplay.y = Number(y);
 				*/
 				
+				/*
 				if (bmp != null) {
 					bmp.x = Number(x);
 					bmp.y = Number(y);
 				}
-				
-				sharedObject.setProperty("theData",x + "," + y);
+				*/
+				//sharedObject.setProperty("theData",x + "," + y);
 
+				sendMousePosition(localStreamName, Number(x), Number(y));
 			}
 			
 			/*
@@ -414,39 +437,43 @@
 				//trace("timer");
 				
 				// Save the frame to the bitmapdata object
-				rbmpd.draw(remoteVideo);
-				
-				if (rpbmpd == null) {
-					rpbmpd.draw(remoteVideo);
-				}
-				
-				for (var row:int=0; row<bmpd.height; row++) { //for each row
-					for(var col:int=0; col<bmpd.width; col++) { //for each column
-						//get the color of this pixels
-						var pix:uint = rbmpd.getPixel(col,row);
-						var ppix:uint = rpbmpd.getPixel(col,row);
-						
-						var red:int = pix >> 16;
-						var pred:int = ppix >> 16;
-						
-						var green:int = pix >> 8 & 0xff;
-						var pgreen:int = ppix >> 8 & 0xff;
-						
-						var blue:int = pix & 0xff;
-						var pblue:int = ppix & 0xff;
-						
-						if (Math.abs(red - pred) + Math.abs(green - pgreen) + Math.abs(blue - pblue) > 50)
-						{
-							rbmpd.setPixel(col,row,0);
-						}
-						else 
-						{
-							rbmpd.setPixel(col,row,0xFFFFFFFF);
+				if (remoteVideo != null) {
+					
+					rbmpd.draw(remoteVideo);
+					
+					if (rpbmpd == null) {
+						rpbmpd.draw(remoteVideo);
+					}
+					
+					for (var row:int=0; row<bmpd.height; row++) { //for each row
+						for(var col:int=0; col<bmpd.width; col++) { //for each column
+							//get the color of this pixels
+							var pix:uint = rbmpd.getPixel(col,row);
+							var ppix:uint = rpbmpd.getPixel(col,row);
+							
+							var red:int = pix >> 16;
+							var pred:int = ppix >> 16;
+							
+							var green:int = pix >> 8 & 0xff;
+							var pgreen:int = ppix >> 8 & 0xff;
+							
+							var blue:int = pix & 0xff;
+							var pblue:int = ppix & 0xff;
+							
+							if (Math.abs(red - pred) + Math.abs(green - pgreen) + Math.abs(blue - pblue) > 50)
+							{
+								rbmpd.setPixel(col,row,0);
+							}
+							else 
+							{
+								rbmpd.setPixel(col,row,0xFFFFFFFF);
+							}
 						}
 					}
+					
+					rpbmpd.draw(remoteVideo);
 				}
-				
-				rpbmpd.draw(remoteVideo);
+
 			}			
 			
 		]]>
