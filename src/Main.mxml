@@ -11,7 +11,7 @@
 
 	<fx:Script>
 		<![CDATA[
-			
+
 			var netConnection:NetConnection;
 
 			var localNetStream:NetStream;
@@ -66,8 +66,10 @@
 				if (ExternalInterface.available) { 
 					ExternalInterface.addCallback("jsMouseMoved",jsMouseMoved);
 					debug("added jsMouseMoved");
+					
+					ExternalInterface.addCallback("jsUrlChanged",jsUrlChanged);
+					debug("added urlChanged");
 				}
-				
 				
 				flashVars = this.parameters;
 				if (flashVars != null) {
@@ -89,7 +91,7 @@
 				netConnection.connect("rtmp://itp-flash.es.its.nyu.edu/sve204/mictest");	
 				
 				//  The following is for video manipulation
-				
+
 				// Create the bitmapdata objects
 				// Local
 				bmpd = new BitmapData(videoWidth,videoHeight);
@@ -336,6 +338,19 @@
 				}
             }
 			
+			public function jsUrlChanged(theNewUrl:String):void {
+				debug("jsUrlChanged: " + theNewUrl);
+				sendNewUrl(theNewUrl);
+			}
+			
+			function sendNewUrl(theNewUrl:String):void {
+				sharedObject.send("newUrl",theNewUrl);
+			}
+			
+			public function newUrl(theNewUrl:String):void {
+				debug("got new URL via shared object, sending to JS");
+				ExternalInterface.call("loadUrl",theNewUrl);
+			}
 			
 			public function jsMouseMoved(x:String,y:String):void {
 				debug("jsMouseMoved: " + x + " " + y);
@@ -402,7 +417,10 @@
 				if (pbmpd == null) {
 					pbmpd.draw(video);
 				}
-
+				
+				// Combo with Edges
+				// Cursor - Near other person - more resolution/color 
+				// Sound - Volume as well
 				for (var row:int=0; row<bmpd.height; row++) { //for each row
 					for(var col:int=0; col<bmpd.width; col++) { //for each column
 						//get the color of this pixels
