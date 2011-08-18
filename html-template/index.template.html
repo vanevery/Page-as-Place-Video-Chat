@@ -48,7 +48,7 @@
                 
         <script type="text/javascript">
         	var testing = true;
-        
+		    var haveFlashAlert = false;        
 
 	        var flashContent;
     		var flashLoaded = false;
@@ -73,26 +73,61 @@
         		loadUrl(document.getElementById("urlText").value);
         	}
         
+        	var currentUrl = "";
         	function loadUrl(theUrl) {
-        		var theContentDiv = document.getElementById("pageContent");
-    	        theContentDiv.innerHTML ='<iframe  id="frameer" onLoad ="urlChanged(event);" src=' + theUrl +   ' scrolling=\"yes\" marginwidth=\"0\" marginheight=\"0\" frameborder=\"0\" vspace=\"0\" hspace=\"0\" height=\"100%\" width=\"100%\"  ></iframe>';
+        		// Trying to make this happen just once.  
+        		if (theUrl != currentUrl) {
+        			if (testing) {
+        				alert("New URL is different, navigating");
+        				alert("Current: " + currentUrl);
+        				alert("New: " + theUrl);
+        			}
+        			currentUrl = theUrl;
+					var theContentDiv = document.getElementById("pageContent");
+					theContentDiv.innerHTML ='<iframe  id="frameer" onLoad ="urlChanged();" src=' + theUrl +   ' scrolling=\"yes\" marginwidth=\"0\" marginheight=\"0\" frameborder=\"0\" vspace=\"0\" hspace=\"0\" height=\"100%\" width=\"100%\"></iframe>';
+				}
 		    }
 		    
-		    function urlChanged(theevent) {
-		    	if (testing) {
-			    	alert(theevent);
+		    function urlChanged() {
+			    var theNewUrl = document.getElementById('frameer').contentWindow.location.href;
+			    
+			    if (testing) {
+			    	alert("new src:" + theNewUrl);
 			    }
+			    
+			    //document.getElementById('frameer').contentDocument.onmousemove = mouseMoved;
+
+			    
+				if (flashLoaded != false) {
+					if (document.getElementById('flashContent') != null) {
+						if (!haveFlashAlert) {
+							if (testing) {
+								alert("have flashContent");
+							}
+							haveFlashAlert = true;
+						}
+						document.getElementById('flashContent').jsUrlChanged(theNewUrl);
+					} else {
+						if (!haveFlashAlert) {
+							if (testing) {
+								alert("do NOT have flashContent");
+							}
+							haveFlashAlert = true;
+						}
+					}
+				}			    
 		    }
 		    
 		    $(document).ready(function() { 
 		    	loadUrl("http://www.google.com"); 
-		    	document.onmousemove = mouseMoved;        
+		    	document.onmousemove = mouseMoved;
+		    	
+		    	//controlBarTimer();
 		    });
 		    
-		    var haveFlashAlert = false;
 		    function mouseMoved() {
 		    	if (testing) {	
-			    	//document.getElementById("log").innerHTML += " x: " + event.clientX + " y: " + event.clientY;
+					//document.getElementById("log").innerHTML += " x: " + event.clientX + " y: " + event.clientY;
 			    }
 		    	
 				if (flashLoaded != false) {
@@ -114,6 +149,18 @@
 					}
 				}		    	
 		    }
+	
+			/*
+			var controlBarTimer = null;
+		    function controlBarTimer() {
+		    	if (document.getElementById('controlBar').style.zIndex == "1") {
+		    		document.getElementById('controlBar').style.zIndex = "3";
+		    	} else {
+		    		document.getElementById('controlBar').style.zIndex = "1";
+		    	}
+				controlBarTimer = setTimeout("controlBarTimerFired()",100);
+		    }
+		    */
 		    		    
 		    function sendFlashBack() {
 		    	var theFlashDiv = document.getElementById("outterFlashContent");
@@ -172,12 +219,14 @@
 			swfobject.createCSS("#flashContent", "display:block;text-align:left;");
         </script>
     </head>
-    <body>
-    	<div id="pageContent" style="position: absolute; top: 0px; left: 0px; width: 100%; height: 100%; z-index: 1;">
+    <body>    	
+    	<!-- z-index issue, mouse move vs. click -->
+    
+    	<div id="pageContent" style="position: absolute; top: 25px; left: 0px; width: 100%; height: 100%; z-index: 1;">
     		<!-- This will be the page content we are browsing -->
     	</div>
     
-    	<div id="controlBar" style="position: absolute; top: 0px; left: 0px; width: 100%; height: 100%; z-index: 5;">
+    	<div id="controlBar" style="position: absolute; top: 0px; left: 0px; width: 100%; height: 100%; z-index: 2;">
     		<input type="text" id="urlText" name="urlText" value="http://www.google.com">
     		<input type="button" name="submit" value="submit" onclick="submitUrl();">
 
